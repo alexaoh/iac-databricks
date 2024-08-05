@@ -1,0 +1,99 @@
+name: Deploy Infrastructure Callable 
+
+on:
+  workflow_call: 
+    inputs:
+      working-directory:
+        required: true
+        type: string
+      backend-config-file:
+        required: false
+        type: string
+        default: "../../backend.azurerm.tfbackend"
+      plan-apply-var-file:
+        required: false
+        type: string
+        default: "../../tfstatevars.tfvars"
+      name: 
+        required: true
+        type: string
+      cd:
+        required: false
+        type: boolean
+        default: true
+      environment:
+        required: false
+        type: string
+        default: production
+    secrets: 
+      ARM_CLIENT_ID:
+        required: true
+      ARM_TENANT_ID: 
+        required: true
+      ARM_SUBSCRIPTION_ID:
+        required: true
+      TF_VAR_DATABRICKS_ACCOUNT_ID:
+        required: true
+
+permissions:
+  id-token: write # Needed for OIDC.
+  contents: read # Needed for OIDC.
+
+jobs:
+  integrate-or-deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    
+    # Set environment variables.
+    env: 
+      ARM_USE_OIDC: true
+      ARM_USE_AZUREAD: true
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      TF_VAR_databricks_account_id: ${{ secrets.TF_VAR_DATABRICKS_ACCOUNT_ID }}
+      BACKEND_CONFIG_FILE: ${{ inputs.backend-config-file }}
+      VAR_FILE: ${{ inputs.plan-apply-var-file }}
+    
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: 'Az CLI login'
+      uses: azure/login@v1
+      with:
+          client-id: ${{ secrets.ARM_CLIENT_ID }}
+          tenant-id: ${{ secrets.ARM_TENANT_ID }}
+          subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  
+    # Install the latest version of Terraform CLI
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: latest
+
+    - name: ${{ inputs.name }} - Terraform init
+      working-directory: ${{ inputs.working-directory }}
+      run: terraform init -backend-config=$BACKEND_CONFIG_FILE
+      
+    - name: ${{ inputs.name }} - Terraform fmt
+      working-directory: ${{ inputs.working-directory }}
+      run: terraform fmt -check
+    
+    - name: ${{ inputs.name }} - Terraform validate
+      working-directory: ${{ inputs.working-directory }}
+      run: terraform validate
+
+    - name: ${{ inputs.name }} - Terraform plan (and save file)
+      working-directory: ${{ inputs.working-directory }}
+      run: terraform plan -var-file=$VAR_FILE -input=false -out=tfplan
+
+    - name: ${{ inputs.name }} - Terraform show plan (CI)
+      working-directory: ${{ inputs.working-directory }}
+      run: terraform show tfplan
+    
+    - name: ${{ inputs.name }} - Terraform apply
+      if: ${{ inputs.cd }}
+      working-directory: ${{ inputs.working-directory }}
+      run: terraform apply -input=false tfplan

@@ -1,0 +1,3 @@
+# Provision Unity Catalog Metastore
+
+The [Unity Catalog](https://learn.microsoft.com/en-us/azure/databricks/data-governance/unity-catalog/) Metastore is provisioned manually through Terraform in this module. Note that any premium Databricks Workspace that is created after November 9, 2023 automatically creates a Unity Catalog Metastore in the specified region, given that the region does not have a metastore already (only one metastore can exist in one region). We prefer provisioning the metastore manually instead, which can be done by [provisioning](https://registry.terraform.io/providers/databricks/databricks/latest/docs/guides/unity-catalog-azure) it BEFORE the Databricks workspace is created. 

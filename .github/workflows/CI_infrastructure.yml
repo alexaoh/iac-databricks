@@ -1,0 +1,72 @@
+name: Integration Test Infrastructure
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/CI_infrastructure.yml
+      - .github/workflows/tf_ci_cd_callable.yml
+      - global/**
+      - tfstatevars.tfvars
+      - backend.azurerm.tfbackend
+      - "!**.md"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Needed for OIDC.
+  contents: read # Needed for OIDC.
+
+# Could have used a matrix, but I like this setup for better readability.
+jobs: 
+  integrate-resource-group:
+    name: Integration Test — Resource Group
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/resource_group
+      name: Resource Group
+      cd: false
+      environment: testing
+    secrets: inherit
+  
+  integrate-storage-account:
+    name: Integration Test — Storage Account
+    needs: integrate-resource-group
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/storage_account
+      name: Storage Account
+      cd: false
+      environment: testing
+    secrets: inherit
+  
+  integrate-key-vault:
+    name: Integration Test — Key Vault
+    needs: integrate-resource-group
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/key_vault
+      name: Key Vault
+      cd: false
+      environment: testing
+    secrets: inherit
+  
+  integrate-unity-catalog:
+    name: Integration Test — Unity Catalog
+    needs: integrate-storage-account
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/unity_catalog_metastore
+      name: Unity Catalog
+      cd: false
+      environment: testing
+    secrets: inherit
+    
+  integrate-databricks-workspace:
+    name: Integration Test — Databricks Workspace
+    needs: integrate-unity-catalog
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/data_platform
+      name: Databricks Workspace
+      cd: false
+      environment: testing
+    secrets: inherit

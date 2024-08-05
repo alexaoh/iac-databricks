@@ -1,0 +1,27 @@
+name: Deploy Databricks Resources
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/CD_databricks_resources.yml
+      - .github/workflows/tf_ci_cd_callable.yml
+      - data_platform_resources/**
+      - "!**.md"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Needed for OIDC.
+  contents: read # Needed for OIDC.
+
+jobs:   
+  deploy-databricks-resources:
+    name: Deploy Databricks Resources
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./data_platform_resources
+      name: Databricks Resources
+      backend-config-file: "../backend.azurerm.tfbackend"
+      plan-apply-var-file: "../tfstatevars.tfvars"
+    secrets: inherit

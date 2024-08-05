@@ -1,0 +1,27 @@
+name: Integration Test Databricks Resources
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/CI_databricks_resources.yml
+      - .github/workflows/tf_ci_cd_callable.yml
+      - data_platform_resources/**
+      - "!**.md"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Needed for OIDC.
+  contents: read # Needed for OIDC.
+
+jobs: 
+  integrate-databricks-resources:
+    name: Integration Test — Databricks Resources
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./data_platform_resources
+      name: Databricks Resources
+      cd: false
+      environment: testing
+      backend-config-file: "../backend.azurerm.tfbackend"
+      plan-apply-var-file: "../tfstatevars.tfvars"
+    secrets: inherit

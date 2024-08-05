@@ -1,0 +1,64 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/CD_infrastructure.yml
+      - .github/workflows/tf_ci_cd_callable.yml
+      - global/**
+      - tfstatevars.tfvars
+      - backend.azurerm.tfbackend
+      - "!**.md"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Needed for OIDC.
+  contents: read # Needed for OIDC.
+
+# Could have used a matrix, but I like this setup for better readability.
+jobs: 
+  deploy-resource-group:
+    name: Deploy Resource Group
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/resource_group
+      name: Resource Group
+    secrets: inherit
+  
+  deploy-storage-account:
+    name: Deploy Storage Account
+    needs: deploy-resource-group
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/storage_account
+      name: Storage Account
+    secrets: inherit
+  
+  deploy-key-vault:
+    name: Deploy Key Vault
+    needs: deploy-resource-group
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/key_vault
+      name: Key Vault
+    secrets: inherit
+  
+  deploy-unity-catalog:
+    name: Deploy Unity Catalog
+    needs: deploy-storage-account
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/unity_catalog_metastore
+      name: Unity Catalog
+    secrets: inherit
+    
+  deploy-databricks-workspace:
+    name: Deploy Databricks Workspace
+    needs: deploy-unity-catalog
+    uses: ./.github/workflows/tf_ci_cd_callable.yml
+    with:
+      working-directory: ./global/data_platform
+      name: Databricks Workspace
+    secrets: inherit
